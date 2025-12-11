@@ -13,15 +13,18 @@ export default async function TeamsPage() {
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
   // Fetch teams where user is owner or member
-  const { data: teams } = await supabase
+  const { data: teams, error } = await supabase
     .from("teams")
     .select(`
       *,
-      team_members(id, user_id, role),
-      owner:profiles(display_name, avatar_url)
+      team_members(id, user_id, role)
     `)
-    .or(`owner_id.eq.${user.id},team_members.user_id.eq.${user.id}`)
+    .eq("owner_id", user.id)
     .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching teams:", error)
+  }
 
   // Fetch pending invitations
   const { data: pendingInvitations } = await supabase

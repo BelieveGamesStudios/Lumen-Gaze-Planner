@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; onTeamCreated: () => void }) {
   const [open, setOpen] = useState(false)
@@ -26,6 +27,7 @@ export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; on
   const [description, setDescription] = useState("")
   const supabase = createClient()
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,9 +57,19 @@ export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; on
       setOpen(false)
       setName("")
       setDescription("")
+      toast({
+        title: "Team created!",
+        description: "Your team has been created successfully.",
+      })
       onTeamCreated()
     } catch (error) {
-      console.error("Failed to create team:", error)
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
+      console.error("Failed to create team:", errorMessage)
+      toast({
+        title: "Failed to create team",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
