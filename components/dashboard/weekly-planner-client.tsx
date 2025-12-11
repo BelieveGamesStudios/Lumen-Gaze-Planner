@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { WeekCard } from "./week-card"
@@ -8,7 +8,7 @@ import { ProgressHeatmap } from "./progress-heatmap"
 import { TagFilter } from "./tag-filter"
 import { MobileNav } from "./mobile-nav"
 import { Button } from "@/components/ui/button"
-import { TagIcon } from "lucide-react"
+import { TagIcon, X } from "lucide-react"
 import type { Task, Tag } from "@/lib/types"
 import {
   Dialog,
@@ -52,6 +52,30 @@ export function WeeklyPlannerClient({
   const [newTagColor, setNewTagColor] = useState("#3b82f6")
 
   const supabase = createClient()
+
+  // Ensure default tags exist for new users
+  useEffect(() => {
+    const ensureDefaultTags = async () => {
+      try {
+        if (tags.length === 0) {
+          const defaults = [
+            { user_id: userId, name: "Personal", color: "#6366f1", is_personal: true },
+            { user_id: userId, name: "Work", color: "#ef4444", is_personal: false },
+          ]
+          const { data: inserted, error } = await supabase.from("tags").insert(defaults).select()
+          if (!error && inserted) {
+            setTags((prev) => [...inserted, ...prev])
+          }
+        }
+      } catch (e) {
+        console.error("Failed to ensure default tags:", e)
+      }
+    }
+
+    ensureDefaultTags()
+    // run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const updateWeeklyCompletions = (updatedTasks: Task[]) => {
     const newCompletions = Array.from({ length: 52 }, (_, i) => {
@@ -99,7 +123,12 @@ export function WeeklyPlannerClient({
     setWeeklyCompletions(newCompletions)
   }
 
-  const handleAddTask = async (weekNumber: number, title: string, description?: string | null) => {
+  const handleAddTask = async (
+    weekNumber: number,
+    title: string,
+    description?: string | null,
+    tagIds?: string[],
+  ) => {
     const newTask: Partial<Task> = {
       user_id: userId,
       title,
@@ -114,11 +143,77 @@ export function WeeklyPlannerClient({
       const { data, error } = await supabase.from("tasks").insert(newTask).select().single()
 
       if (!error && data) {
-        const updatedTasks = [...tasks, { ...data, tags: [] }]
+        // attach tags if provided
+        if (tagIds && tagIds.length > 0) {
+          try {
+            await supabase.from("task_tags").insert(tagIds.map((tagId) => ({ task_id: data.id, tag_id: tagId })))
+          } catch (e) {
+            console.error("Failed to attach tags to task:", e)
+          }
+        }
+
+        // optimistic: include tag objects for the created task based on selected tagIds
+        const attachedTags = tagIds && tagIds.length > 0 ? tags.filter((t) => tagIds?.includes(t.id)) : []
+        const updatedTasks = [...tasks, { ...data, tags: attachedTags }]
         setTasks(updatedTasks)
         updateWeeklyCompletions(updatedTasks)
       }
     })
+  }
+
+  const spawnConfetti = () => {
+    try {
+      const duration = 2000
+      const end = Date.now() + duration
+      const colors = ["#bb0000", "#ffffff", "#00bbff", "#ffd700", "#00ff7f"]
+
+      const canvas = document.createElement("canvas")
+      canvas.style.position = "fixed"
+      canvas.style.top = "0"
+      canvas.style.left = "0"
+      canvas.style.width = "100%"
+      canvas.style.height = "100%"
+      canvas.style.pointerEvents = "none"
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      document.body.appendChild(canvas)
+      const ctx = canvas.getContext("2d")!
+
+      const particles: any[] = []
+      for (let i = 0; i < 80; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: -20 - Math.random() * 200,
+          r: Math.random() * 6 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 6,
+          vy: Math.random() * 6 + 2,
+          rot: Math.random() * Math.PI,
+        })
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        particles.forEach((p) => {
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.15
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.ellipse(p.x, p.y, p.r, p.r * 0.6, p.rot, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        if (Date.now() < end) {
+          requestAnimationFrame(frame)
+        } else {
+          canvas.remove()
+        }
+      }
+
+      requestAnimationFrame(frame)
+    } catch (e) {
+      // ignore if document not available
+    }
   }
 
   const handleToggleTask = async (taskId: string, completed: boolean) => {
@@ -137,6 +232,7 @@ export function WeeklyPlannerClient({
         )
         setTasks(updatedTasks)
         updateWeeklyCompletions(updatedTasks)
+        if (completed) spawnConfetti()
       }
     })
   }
@@ -188,6 +284,25 @@ export function WeeklyPlannerClient({
         setNewTagName("")
         setNewTagColor("#3b82f6")
         setIsTagDialogOpen(false)
+      }
+    })
+  }
+
+  const handleDeleteTag = async (tagId: string) => {
+    startTransition(async () => {
+      try {
+        const { error } = await supabase.from("tags").delete().eq("id", tagId)
+        if (!error) {
+          setTags((prev) => prev.filter((t) => t.id !== tagId))
+          setTasks((prev) => prev.map((task) => ({ ...task, tags: task.tags?.filter((tg) => tg.id !== tagId) })))
+          toast({ title: "Tag deleted" })
+        } else {
+          console.error("Failed to delete tag:", error)
+          toast({ title: "Failed to delete tag", variant: "destructive" })
+        }
+      } catch (e) {
+        console.error(e)
+        toast({ title: "Failed to delete tag", variant: "destructive" })
       }
     })
   }
@@ -250,13 +365,22 @@ export function WeeklyPlannerClient({
                   <Label>Existing Tags</Label>
                   <div className="flex flex-wrap gap-2">
                     {tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="px-2 py-1 text-xs rounded-md text-white"
-                        style={{ backgroundColor: tag.color }}
-                      >
-                        {tag.name}
-                      </span>
+                      <div key={tag.id} className="flex items-center gap-2">
+                        <span
+                          className="px-2 py-1 text-xs rounded-md text-white flex items-center"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDeleteTag(tag.id)}
+                          title={`Delete ${tag.name}`}
+                        >
+                          <X className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </div>

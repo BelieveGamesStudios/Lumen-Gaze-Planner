@@ -19,7 +19,7 @@ interface WeekCardProps {
   tasks: Task[]
   tags: Tag[]
   isCurrentWeek: boolean
-  onAddTask: (weekNumber: number, title: string, description?: string | null) => void
+  onAddTask: (weekNumber: number, title: string, description?: string | null, tagIds?: string[]) => void
   onToggleTask: (taskId: string, completed: boolean) => void
   onDeleteTask: (taskId: string) => void
   onEditTask?: (taskId: string, updates: Partial<Task>) => void
@@ -42,6 +42,7 @@ export function WeekCard({
   const [newTaskTitle, setNewTaskTitle] = useState("")
   const [isAdding, setIsAdding] = useState(false)
   const [newTaskDescription, setNewTaskDescription] = useState<string | null>(null)
+  const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState("")
   const [editingDescription, setEditingDescription] = useState<string | null>(null)
@@ -64,9 +65,10 @@ export function WeekCard({
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault()
     if (newTaskTitle.trim()) {
-      onAddTask(weekNumber, newTaskTitle.trim(), newTaskDescription)
+      onAddTask(weekNumber, newTaskTitle.trim(), newTaskDescription, newTaskTagIds)
       setNewTaskTitle("")
       setNewTaskDescription(null)
+      setNewTaskTagIds([])
       setIsAdding(false)
     }
   }
@@ -264,6 +266,37 @@ export function WeekCard({
                 onChange={(e) => setNewTaskDescription(e.target.value)}
                 className="w-full"
               />
+              {tags.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">Assign tags</label>
+                  <div className="flex gap-2 overflow-x-auto">
+                    {tags.map((t) => {
+                      const selected = newTaskTagIds.includes(t.id)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setNewTaskTagIds((prev) => (prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]))
+                          }}
+                          className={cn(
+                            "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap",
+                            selected ? "text-white" : "text-muted-foreground",
+                          )}
+                          style={
+                            selected
+                              ? { backgroundColor: t.color }
+                              : { backgroundColor: "transparent", border: `1px solid ${t.color}` }
+                          }
+                        >
+                          {t.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Button type="submit" size="sm">
                   Add
