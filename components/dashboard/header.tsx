@@ -3,7 +3,7 @@
 import type React from "react"
 
 import type { User } from "@supabase/supabase-js"
-import { CalendarDays, Search, Moon, Sun, LogOut, Bell } from "lucide-react"
+import { CalendarDays, Search, Moon, Sun, LogOut, Bell, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -150,54 +150,65 @@ export function DashboardHeader({ user }: { user: User }) {
                   <div className="p-3 text-sm text-muted-foreground">No notifications</div>
                 ) : (
                   invitations.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between gap-2 p-3 hover:bg-secondary/50">
+                    <div key={inv.id} className="flex items-center justify-between gap-2 p-3 hover:bg-secondary/50 group">
                       <div className="flex-1">
                         <div className="text-sm font-medium">{inv.team?.name || inv.team?.name || "Notification"}</div>
                         {inv.type === "invitation" && (
                           <div className="text-xs text-muted-foreground">Role: {inv.role}</div>
                         )}
                       </div>
-                      {inv.type === "invitation" && inv.team_id && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const { error } = await supabase.from("team_members").insert({
-                                  team_id: inv.team_id,
-                                  user_id: user.id,
-                                  role: inv.role,
-                                })
-                                if (error) throw error
-                                await supabase.from("team_invitations").update({ status: "accepted" }).eq("id", inv.id)
-                                setInvitations((prev) => prev.filter((i) => i.id !== inv.id))
-                                toast({ title: "Invitation accepted" })
-                              } catch (err) {
-                                console.error(err)
-                                toast({ title: "Failed to accept invitation", variant: "destructive" })
-                              }
-                            }}
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                await supabase.from("team_invitations").update({ status: "rejected" }).eq("id", inv.id)
-                                setInvitations((prev) => prev.filter((i) => i.id !== inv.id))
-                                toast({ title: "Invitation rejected" })
-                              } catch (err) {
-                                console.error(err)
-                                toast({ title: "Failed to reject", variant: "destructive" })
-                              }
-                            }}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex gap-1 items-center">
+                        {inv.type === "invitation" && inv.team_id && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase.from("team_members").insert({
+                                    team_id: inv.team_id,
+                                    user_id: user.id,
+                                    role: inv.role,
+                                  })
+                                  if (error) throw error
+                                  await supabase.from("team_invitations").update({ status: "accepted" }).eq("id", inv.id)
+                                  setInvitations((prev) => prev.filter((i) => i.id !== inv.id))
+                                  toast({ title: "Invitation accepted" })
+                                } catch (err) {
+                                  console.error(err)
+                                  toast({ title: "Failed to accept invitation", variant: "destructive" })
+                                }
+                              }}
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await supabase.from("team_invitations").update({ status: "rejected" }).eq("id", inv.id)
+                                  setInvitations((prev) => prev.filter((i) => i.id !== inv.id))
+                                  toast({ title: "Invitation rejected" })
+                                } catch (err) {
+                                  console.error(err)
+                                  toast({ title: "Failed to reject", variant: "destructive" })
+                                }
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setInvitations((prev) => prev.filter((i) => i.id !== inv.id))}
+                          title="Dismiss notification"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 )}
