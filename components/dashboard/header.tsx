@@ -47,7 +47,7 @@ export function DashboardHeader({ user }: { user: User }) {
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         <Link href="/dashboard" className="flex items-center gap-2">
           <CalendarDays className="h-6 w-6 text-primary" />
-          <span className="font-semibold hidden sm:inline">Lumengaze Planner</span>
+          <span className="font-semibold hidden sm:inline">Lumen Gaze Planner</span>
         </Link>
 
         <form onSubmit={handleSearch} className="flex-1 max-w-md mx-4">
