@@ -72,6 +72,10 @@ export function TeamsClient({
   const isTeamOwner = (team: Team) => team.owner_id === userId
   const isTeamMember = (team: Team) => teams.find((t) => t.id === team.id)
 
+  const handleTeamCreated = (newTeam: any) => {
+    setTeams((prev) => [newTeam, ...prev])
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -79,7 +83,7 @@ export function TeamsClient({
           <h1 className="text-3xl font-bold">Teams</h1>
           <p className="text-muted-foreground mt-1">Create and manage team planners for collaborative planning</p>
         </div>
-        <CreateTeamDialog userId={userId} onTeamCreated={() => router.refresh()} />
+        <CreateTeamDialog userId={userId} onTeamCreated={handleTeamCreated} />
       </div>
 
       {/* Pending Invitations */}

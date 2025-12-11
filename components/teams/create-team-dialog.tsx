@@ -20,7 +20,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
-export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; onTeamCreated: () => void }) {
+export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; onTeamCreated: (newTeam: any) => void }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState("")
@@ -48,20 +48,29 @@ export function CreateTeamDialog({ userId, onTeamCreated }: { userId: string; on
       if (error) throw error
 
       // Add creator as admin member
-      await supabase.from("team_members").insert({
+      const { data: teamMember } = await supabase.from("team_members").insert({
         team_id: team.id,
         user_id: userId,
         role: "admin",
       })
+      .select()
+      .single()
 
       setOpen(false)
       setName("")
       setDescription("")
+      
+      // Add the new team to the UI immediately
+      const newTeam = {
+        ...team,
+        team_members: [teamMember || { id: "", user_id: userId, role: "admin" }],
+      }
+      onTeamCreated(newTeam)
+      
       toast({
         title: "Team created!",
         description: "Your team has been created successfully.",
       })
-      onTeamCreated()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
       console.error("Failed to create team:", errorMessage)
