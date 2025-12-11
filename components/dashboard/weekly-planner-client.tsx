@@ -116,6 +116,18 @@ export function WeeklyPlannerClient({
     })
   }
 
+  const handleEditTask = async (taskId: string, updates: Partial<Task>) => {
+    startTransition(async () => {
+      const { data, error } = await supabase.from("tasks").update(updates).eq("id", taskId).select().single()
+
+      if (!error && data) {
+        const updatedTasks = tasks.map((t) => (t.id === taskId ? { ...t, ...data } : t))
+        setTasks(updatedTasks)
+        updateWeeklyCompletions(updatedTasks)
+      }
+    })
+  }
+
   const handleToggleTag = (tagId: string) => {
     setSelectedTags((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]))
   }
@@ -251,6 +263,7 @@ export function WeeklyPlannerClient({
             onAddTask={handleAddTask}
             onToggleTask={handleToggleTask}
             onDeleteTask={handleDeleteTask}
+            onEditTask={handleEditTask}
             defaultExpanded={weekNumber === currentWeek}
           />
         ))}

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { ChevronDown, ChevronRight, Plus, Trash2, GripVertical } from "lucide-react"
+import { ChevronDown, ChevronRight, Plus, Trash2, GripVertical, Edit } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,6 +21,7 @@ interface WeekCardProps {
   onAddTask: (weekNumber: number, title: string) => void
   onToggleTask: (taskId: string, completed: boolean) => void
   onDeleteTask: (taskId: string) => void
+  onEditTask?: (taskId: string, updates: Partial<Task>) => void
   defaultExpanded?: boolean
 }
 
@@ -38,6 +39,8 @@ export function WeekCard({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded || isCurrentWeek)
   const [newTaskTitle, setNewTaskTitle] = useState("")
   const [isAdding, setIsAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState("")
 
   const { formatted } = getWeekDates(weekNumber, year)
 
@@ -125,9 +128,30 @@ export function WeekCard({
                 checked={task.completed}
                 onCheckedChange={(checked) => onToggleTask(task.id, checked as boolean)}
               />
-              <span className={cn("flex-1 text-sm", task.completed && "line-through text-muted-foreground")}>
-                {task.title}
-              </span>
+              {editingId === task.id ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (editingTitle.trim()) {
+                      onEditTask?.(task.id, { title: editingTitle.trim() })
+                      setEditingId(null)
+                      setEditingTitle("")
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Input
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    className="flex-1"
+                    autoFocus
+                  />
+                </form>
+              ) : (
+                <span className={cn("flex-1 text-sm", task.completed && "line-through text-muted-foreground")}>
+                  {task.title}
+                </span>
+              )}
               <div className="flex items-center gap-2">
                 {task.tags?.map((tag) => (
                   <Badge
@@ -139,6 +163,17 @@ export function WeekCard({
                     {tag.name}
                   </Badge>
                 ))}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                  onClick={() => {
+                    setEditingId(task.id)
+                    setEditingTitle(task.title)
+                  }}
+                >
+                  <Edit className="h-3 w-3 text-muted-foreground" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
