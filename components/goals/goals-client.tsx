@@ -10,6 +10,7 @@ import type { YearlyGoal, Task } from "@/lib/types"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,8 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
+
+  const { toast } = useToast()
 
   // Form state
   const [title, setTitle] = useState("")
@@ -141,6 +144,14 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
         setDecadeGoals((prev) => [...prev, data])
         resetDecadeForm()
         setIsDecadeDialogOpen(false)
+        toast({ title: "10-year goal created successfully" })
+      } else {
+        console.error("Failed to create decade goal:", error)
+        toast({
+          title: "Failed to create 10-year goal",
+          description: error?.message || "Please try again",
+          variant: "destructive"
+        })
       }
     })
   }
@@ -386,58 +397,6 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
         </Card>
       </div>
 
-      {/* 10-Year Plan */}
-      <Card>
-        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="text-xl font-semibold">10-Year Plan</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Long-term goals spanning a decade. New goals use the currently viewed year as the start year.
-            </p>
-          </div>
-          {decadeGoals.length < 5 && (
-            <Button onClick={() => setIsDecadeDialogOpen(true)}>
-              <CalendarRange className="h-4 w-4 mr-2" />
-              Add 10-Year Goal
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {decadeGoals.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No decade goals yet. Add up to 5 long-term goals.</div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {decadeGoals.map((goal) => (
-                <div key={goal.id} className="rounded-lg border border-border p-4 space-y-2 bg-card/50">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-semibold">{goal.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {goal.start_year}–{goal.end_year}
-                      </div>
-                      {goal.description && <p className="text-sm text-muted-foreground mt-1">{goal.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDecadeDialog(goal)}>
-                        <Edit2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setDeleteDecadeGoalId(goal.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Goals List */}
       {goals.length === 0 ? (
         <Card>
@@ -522,6 +481,58 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
           ))}
         </div>
       )}
+
+      {/* 10-Year Plan */}
+      <Card>
+        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-xl font-semibold">10-Year Plan</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Long-term goals spanning a decade. New goals use the currently viewed year as the start year.
+            </p>
+          </div>
+          {decadeGoals.length < 5 && (
+            <Button onClick={() => setIsDecadeDialogOpen(true)}>
+              <CalendarRange className="h-4 w-4 mr-2" />
+              Add 10-Year Goal
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {decadeGoals.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No decade goals yet. Add up to 5 long-term goals.</div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {decadeGoals.map((goal) => (
+                <div key={goal.id} className="rounded-lg border border-border p-4 space-y-2 bg-card/50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold">{goal.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {goal.start_year}–{goal.end_year}
+                      </div>
+                      {goal.description && <p className="text-sm text-muted-foreground mt-1">{goal.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDecadeDialog(goal)}>
+                        <Edit2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setDeleteDecadeGoalId(goal.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create/Edit Decade Goal Dialog */}
       <Dialog open={isDecadeDialogOpen} onOpenChange={setIsDecadeDialogOpen}>
