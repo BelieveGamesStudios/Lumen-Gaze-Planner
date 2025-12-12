@@ -2,8 +2,10 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { CalendarDays, Target, Repeat, BarChart3, Sparkles, Users } from "lucide-react"
+import { useYear } from "@/contexts/year-context"
 
 const navItems = [
   { href: "/dashboard", label: "Weekly Planner", icon: CalendarDays, tourId: "nav-planner" },
@@ -16,10 +18,20 @@ const navItems = [
 export function DashboardNav() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { selectedYear } = useYear()
+  const [isHydrated, setIsHydrated] = useState(false)
 
-  // Get current year parameter to preserve it in navigation
-  const yearParam = searchParams.get("year")
-  const yearQuery = yearParam ? `?year=${yearParam}` : ""
+  // Mark as hydrated after first render
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  // Get year from URL params during SSR/hydration
+  const yearFromUrl = searchParams.get("year")
+  const displayYear = isHydrated ? selectedYear : (yearFromUrl ? parseInt(yearFromUrl, 10) : selectedYear)
+
+  // Create URL with the current selected year
+  const yearQuery = `?year=${displayYear}`
 
   return (
     <nav className="hidden lg:flex flex-col w-56 border-r border-border min-h-[calc(100vh-3.5rem)] p-4 gap-1">

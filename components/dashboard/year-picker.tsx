@@ -4,16 +4,18 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useYear } from "@/contexts/year-context"
 
-interface YearPickerProps {
-  selectedYear: number
-  onYearSelect: (year: number) => void
-  currentYear: number
-}
-
-export function YearPicker({ selectedYear, onYearSelect, currentYear }: YearPickerProps) {
+export function YearPicker() {
+  const { selectedYear, setSelectedYear, currentYear } = useYear()
   const [isOpen, setIsOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Mark as hydrated after first render
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   // Calculate the starting year for the current 9-year range
   // We'll show years centered around the selected year
@@ -52,9 +54,23 @@ export function YearPicker({ selectedYear, onYearSelect, currentYear }: YearPick
   }
 
   const handleYearClick = (year: number) => {
-    onYearSelect(year)
+    setSelectedYear(year)
     // Update the range to center around the selected year
     setStartYear(getStartYear(year))
+  }
+
+  // Don't render until hydrated to prevent hydration mismatch
+  if (!isHydrated) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-sm text-muted-foreground">Year:</span>
+        <div className="relative">
+          <Button variant="ghost" size="sm" className="h-8 px-2 font-medium" disabled>
+            {currentYear}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

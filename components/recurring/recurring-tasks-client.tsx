@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { useYear } from "@/contexts/year-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -43,22 +44,90 @@ export function RecurringTasksClient({
   initialRecurringTasks,
   initialTags,
   currentWeek,
-  currentYear,
+  currentYear: initialYear,
   userId,
 }: RecurringTasksClientProps) {
+  const { selectedYear } = useYear()
   const [recurringTasks, setRecurringTasks] = useState(initialRecurringTasks)
   const [tags, setTags] = useState(initialTags)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const supabase = createClient()
 
-  // Refresh state when year changes / new data is passed
+  // Fetch recurring tasks data for the selected year
+  const fetchRecurringTasksData = async () => {
+    startTransition(async () => {
+      // Fetch recurring tasks with their tags
+      const { data: recurringTasks } = await supabase
+        .from("recurring_tasks")
+        .select(`
+          *,
+          tags:recurring_task_tags(tag:tags(*))
+        `)
+        .eq("user_id", userId)
+        .eq("start_year", selectedYear)
+        .order("created_at", { ascending: false })
+
+      // Fetch all task instances for these recurring tasks
+      const { data: taskInstances } = await supabase
+        .from("recurring_task_instances")
+        .select(`
+          recurring_task_id,
+          task:tasks(*)
+        `)
+        .eq("task.user_id", userId)
+        .eq("task.year", selectedYear)
+
+      // Fetch tags
+      const { data: tags } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("user_id", userId)
+        .order("name", { ascending: true })
+
+      // Transform recurring tasks with completion percentage
+      const transformedRecurringTasks =
+        recurringTasks?.map((rt) => {
+          const instances = taskInstances?.filter((ti) => ti.recurring_task_id === rt.id) || []
+          const completedCount = instances.filter((ti) => (ti.task as any)?.completed).length
+          const totalCount = instances.length
+
+          return {
+            ...rt,
+            tags: rt.tags?.map((t: { tag: unknown }) => t.tag) || [],
+            completion_percentage: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+            total_instances: totalCount,
+            completed_instances: completedCount,
+          }
+        }) || []
+
+      setRecurringTasks(transformedRecurringTasks)
+      setTags(tags || [])
+    })
+  }
+
+  // Mark as hydrated after first render
   useEffect(() => {
-    setRecurringTasks(initialRecurringTasks)
-    setTags(initialTags)
-  }, [initialRecurringTasks, initialTags, currentYear])
+    setIsHydrated(true)
+  }, [])
+
+  // Refresh data when year changes
+  useEffect(() => {
+    if (isHydrated) {
+      fetchRecurringTasksData()
+    }
+  }, [selectedYear, isHydrated])
+
+  // Initialize with server data
+  useEffect(() => {
+    if (selectedYear === initialYear) {
+      setRecurringTasks(initialRecurringTasks)
+      setTags(initialTags)
+    }
+  }, [])
 
   const handleCreateRecurringTask = async (
     title: string,
@@ -76,7 +145,7 @@ export function RecurringTasksClient({
           description: description || null,
           recurrence_type: recurrenceType,
           start_week: 1, // Always start from week 1 of the selected year
-          start_year: currentYear, // currentYear is actually the selected year
+          start_year: selectedYear,
           is_active: true,
         })
         .select()
@@ -95,7 +164,7 @@ export function RecurringTasksClient({
       }
 
       // Generate task instances for all weeks of the selected year
-      const weeksToGenerate = getWeeksForRecurrence(recurrenceType, currentYear)
+      const weeksToGenerate = getWeeksForRecurrence(recurrenceType, selectedYear)
 
       const tasksToInsert = weeksToGenerate.map((w) => ({
         user_id: userId,
@@ -189,26 +258,26 @@ export function RecurringTasksClient({
   ): { week: number; year: number }[] => {
     const weeks: { week: number; year: number }[] = []
 
-    switch (recurrenceType) {
-      case "daily":
-      case "weekly":
+      switch (recurrenceType) {
+        case "daily":
+        case "weekly":
         // Add to all 52 weeks of the selected year
         for (let week = 1; week <= 52; week++) {
           weeks.push({ week, year: selectedYear })
         }
-        break
-      case "biweekly":
+          break
+        case "biweekly":
         // Add to every other week (weeks 1, 3, 5, 7, etc.)
         for (let week = 1; week <= 52; week += 2) {
           weeks.push({ week, year: selectedYear })
         }
-        break
-      case "monthly":
+          break
+        case "monthly":
         // Add to every 4th week (approximately monthly)
         for (let week = 1; week <= 52; week += 4) {
           weeks.push({ week, year: selectedYear })
         }
-        break
+          break
     }
 
     return weeks
@@ -217,7 +286,7 @@ export function RecurringTasksClient({
   const activeCount = recurringTasks.filter((rt) => rt.is_active).length
   const totalCompletionRate =
     recurringTasks.length > 0
-      ? Math.round(recurringTasks.reduce((acc, rt) => acc + rt.completion_percentage, 0) / recurringTasks.length)
+      ? Math.round(recurringTasks.reduce((acc, rt) => acc + (rt.completion_percentage || 0), 0) / recurringTasks.length)
       : 0
 
   return (
@@ -225,7 +294,7 @@ export function RecurringTasksClient({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{currentYear} Recurring Tasks</h1>
+          <h1 className="text-2xl font-bold">{isHydrated ? selectedYear : initialYear} Recurring Tasks</h1>
           <p className="text-muted-foreground">
             {activeCount} active · {totalCompletionRate}% overall completion
           </p>
@@ -351,6 +420,7 @@ export function RecurringTasksClient({
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         tags={tags}
+        goals={[]}
         onCreateTask={handleCreateRecurringTask}
         isPending={isPending}
       />

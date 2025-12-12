@@ -91,5 +91,5 @@ export default async function MonthlyPage({
     }
   })
 
-  return <MonthlyOverviewClient monthlyStats={monthlyStats} currentYear={selectedYear} />
+  return <MonthlyOverviewClient monthlyStats={monthlyStats} currentYear={selectedYear} userId={user.id} />
 }

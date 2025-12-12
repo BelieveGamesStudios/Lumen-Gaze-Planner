@@ -15,17 +15,18 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import type { Tag } from "@/lib/types"
+import type { Tag, YearlyGoal } from "@/lib/types"
 
 interface CreateRecurringTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tags: Tag[]
+  goals?: YearlyGoal[]
   onCreateTask: (
     title: string,
     description: string,
     recurrenceType: "daily" | "weekly" | "biweekly" | "monthly",
-    tagIds: string[],
+    selectedTagIds: string[],
   ) => void
   isPending: boolean
 }
@@ -34,6 +35,7 @@ export function CreateRecurringTaskDialog({
   open,
   onOpenChange,
   tags,
+  goals = [],
   onCreateTask,
   isPending,
 }: CreateRecurringTaskDialogProps) {
@@ -41,6 +43,7 @@ export function CreateRecurringTaskDialog({
   const [description, setDescription] = useState("")
   const [recurrenceType, setRecurrenceType] = useState<"daily" | "weekly" | "biweekly" | "monthly">("weekly")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedGoalId, setSelectedGoalId] = useState<string>("")
 
   const handleSubmit = () => {
     if (title.trim()) {
@@ -50,6 +53,7 @@ export function CreateRecurringTaskDialog({
       setDescription("")
       setRecurrenceType("weekly")
       setSelectedTags([])
+      setSelectedGoalId("")
     }
   }
 
@@ -102,6 +106,25 @@ export function CreateRecurringTaskDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {goals.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="goal">Link to Goal (optional)</Label>
+              <Select value={selectedGoalId} onValueChange={setSelectedGoalId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a goal to link this task to" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No goal</SelectItem>
+                  {goals.map((goal) => (
+                    <SelectItem key={goal.id} value={goal.id}>
+                      {goal.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {tags.length > 0 && (
             <div className="space-y-2">

@@ -19,6 +19,14 @@ export default async function RecurringPage({
   const requestedYear = params.year ? parseInt(params.year, 10) : NaN
   const selectedYear = Number.isFinite(requestedYear) ? requestedYear : currentYear
 
+  // Fetch goals for the selected year
+  const { data: goals } = await supabase
+    .from("yearly_goals")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("year", selectedYear)
+    .order("created_at", { ascending: true })
+
   // Fetch recurring tasks with their tags
   const { data: recurringTasks } = await supabase
     .from("recurring_tasks")
@@ -67,6 +75,7 @@ export default async function RecurringPage({
     <RecurringTasksClient
       initialRecurringTasks={transformedRecurringTasks}
       initialTags={tags || []}
+      initialGoals={goals || []}
       currentWeek={currentWeek}
       currentYear={selectedYear}
       userId={user.id}

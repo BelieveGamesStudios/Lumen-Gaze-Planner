@@ -1,6 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useYear } from "@/contexts/year-context"
+import { createClient } from "@/lib/supabase/client"
+import { getMonthFromWeek } from "@/lib/utils/date"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, CheckCircle2, ListTodo, TrendingUp } from "lucide-react"
@@ -20,10 +24,111 @@ interface MonthStat {
 interface MonthlyOverviewClientProps {
   monthlyStats: MonthStat[]
   currentYear: number
+  userId: string
 }
 
-export function MonthlyOverviewClient({ monthlyStats, currentYear }: MonthlyOverviewClientProps) {
+export function MonthlyOverviewClient({ monthlyStats: initialStats, currentYear: initialYear, userId }: MonthlyOverviewClientProps) {
+  const { selectedYear } = useYear()
+  const [monthlyStats, setMonthlyStats] = useState(initialStats)
+  const [isHydrated, setIsHydrated] = useState(false)
+  const supabase = createClient()
   const currentMonth = new Date().getMonth()
+
+  // Mark as hydrated after first render
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  // Fetch monthly stats for the selected year
+  const fetchMonthlyStats = async () => {
+    // Fetch all tasks for the year
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select(`
+        *,
+        tags:task_tags(tag:tags(*))
+      `)
+      .eq("user_id", userId)
+      .eq("year", selectedYear)
+
+    // Fetch tags
+    const { data: tags } = await supabase
+      .from("tags")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name", { ascending: true })
+
+    // Transform tasks
+    const transformedTasks =
+      tasks?.map((task) => ({
+        ...task,
+        tags: task.tags?.map((t: { tag: unknown }) => t.tag) || [],
+      })) || []
+
+    // Calculate monthly stats
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    const newMonthlyStats = monthNames.map((name, monthIndex) => {
+      // Find tasks for this month (based on week_number)
+      const monthTasks = transformedTasks.filter((t) => {
+        const taskMonth = getMonthFromWeek(t.week_number, selectedYear)
+        return taskMonth === monthIndex
+      })
+
+      const completedTasks = monthTasks.filter((t) => t.completed).length
+      const totalTasks = monthTasks.length
+
+      // Calculate tag usage
+      const tagCounts: Record<string, number> = {}
+      monthTasks.forEach((task) => {
+        task.tags?.forEach((tag: { id: string }) => {
+          tagCounts[tag.id] = (tagCounts[tag.id] || 0) + 1
+        })
+      })
+
+      const tagUsage = Object.entries(tagCounts)
+        .map(([tagId, count]) => ({
+          tag: tags?.find((t) => t.id === tagId),
+          count,
+        }))
+        .filter((tu) => tu.tag)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3)
+
+      // Find most active week
+      const weekCounts: Record<number, number> = {}
+      monthTasks.forEach((task) => {
+        weekCounts[task.week_number] = (weekCounts[task.week_number] || 0) + 1
+      })
+      const mostActiveWeek = Object.entries(weekCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || null
+
+      return {
+        month: monthIndex,
+        name,
+        totalTasks,
+        completedTasks,
+        completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        tagUsage,
+        mostActiveWeek: mostActiveWeek ? Number.parseInt(mostActiveWeek) : null,
+      }
+    })
+
+    setMonthlyStats(newMonthlyStats)
+  }
+
+  // Refresh data when year changes
+  useEffect(() => {
+    if (isHydrated) {
+      fetchMonthlyStats()
+    }
+  }, [selectedYear, isHydrated])
+
+  // Initialize with server data
+  useEffect(() => {
+    if (selectedYear === initialYear) {
+      setMonthlyStats(initialStats)
+    }
+  }, [])
 
   const yearTotalTasks = monthlyStats.reduce((acc, m) => acc + m.totalTasks, 0)
   const yearCompletedTasks = monthlyStats.reduce((acc, m) => acc + m.completedTasks, 0)
@@ -36,8 +141,8 @@ export function MonthlyOverviewClient({ monthlyStats, currentYear }: MonthlyOver
     <div className="space-y-6 pb-20 lg:pb-0">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">{currentYear} Monthly Overview</h1>
-        <p className="text-muted-foreground">{currentYear} progress by month</p>
+        <h1 className="text-2xl font-bold">{isHydrated ? selectedYear : initialYear} Monthly Overview</h1>
+        <p className="text-muted-foreground">{isHydrated ? selectedYear : initialYear} progress by month</p>
       </div>
 
       {/* Year Summary */}

@@ -24,6 +24,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { YearPicker } from "@/components/dashboard/year-picker"
+import { useYear } from "@/contexts/year-context"
 
 export function DashboardHeader({ user }: { user: User }) {
   const { setTheme, theme } = useTheme()
@@ -34,11 +35,7 @@ export function DashboardHeader({ user }: { user: User }) {
   const [invitations, setInvitations] = useState<any[]>([])
   const supabase = createClient()
   const { toast } = useToast()
-  const thisYear = new Date().getFullYear()
-  const selectedYearParam = searchParams.get("year")
-  const selectedYear = selectedYearParam && !Number.isNaN(parseInt(selectedYearParam, 10))
-    ? parseInt(selectedYearParam, 10)
-    : thisYear
+  const { selectedYear } = useYear()
 
   useEffect(() => {
     const fetchInvites = async () => {
@@ -120,11 +117,7 @@ export function DashboardHeader({ user }: { user: User }) {
         </Link>
 
         <div className="flex-1 flex items-center gap-3 mx-4 max-w-2xl">
-          <YearPicker
-            selectedYear={selectedYear}
-            onYearSelect={handleYearSelect}
-            currentYear={thisYear}
-          />
+          <YearPicker />
 
           <form onSubmit={handleSearch} className="flex-1">
             <div className="relative">

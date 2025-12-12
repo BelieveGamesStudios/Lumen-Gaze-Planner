@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
+import { useYear } from "@/contexts/year-context"
 import { WeekCard } from "./week-card"
 import { ProgressHeatmap } from "./progress-heatmap"
 import { TagFilter } from "./tag-filter"
@@ -36,14 +37,16 @@ export function WeeklyPlannerClient({
   initialTags,
   weeklyCompletions: initialWeeklyCompletions,
   currentWeek,
-  currentYear,
+  currentYear: initialYear,
   userId,
 }: WeeklyPlannerClientProps) {
+  const { selectedYear } = useYear()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [tags, setTags] = useState<Tag[]>(initialTags)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [weeklyCompletions, setWeeklyCompletions] = useState(initialWeeklyCompletions)
   const [isPending, startTransition] = useTransition()
+  const [isHydrated, setIsHydrated] = useState(false)
   const { toast } = useToast()
 
   // Tag dialog state
@@ -53,13 +56,72 @@ export function WeeklyPlannerClient({
 
   const supabase = createClient()
 
-  // Sync incoming data when year changes (full refresh of state)
+  // Mark as hydrated after first render
   useEffect(() => {
-    setTasks(initialTasks)
-    setTags(initialTags)
-    setWeeklyCompletions(initialWeeklyCompletions)
-    setSelectedTags([])
-  }, [initialTasks, initialTags, initialWeeklyCompletions, currentYear])
+    setIsHydrated(true)
+  }, [])
+
+  // Fetch tasks and tags data for the selected year
+  const fetchPlannerData = async () => {
+    startTransition(async () => {
+      // Fetch tasks for the selected year
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select(`
+          *,
+          tags:task_tags(tag:tags(*))
+        `)
+        .eq("user_id", userId)
+        .eq("year", selectedYear)
+        .order("sort_order", { ascending: true })
+
+      // Fetch tags
+      const { data: tags } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("user_id", userId)
+        .order("name", { ascending: true })
+
+      // Transform tasks to include tags array
+      const transformedTasks =
+        tasks?.map((task) => ({
+          ...task,
+          tags: task.tags?.map((t: { tag: unknown }) => t.tag) || [],
+        })) || []
+
+      // Calculate weekly completions for heatmap
+      const weeklyCompletions = Array.from({ length: 52 }, (_, i) => {
+        const weekTasks = transformedTasks.filter((t) => t.week_number === i + 1)
+        return {
+          week: i + 1,
+          completed: weekTasks.filter((t) => t.completed).length,
+          total: weekTasks.length,
+        }
+      })
+
+      setTasks(transformedTasks)
+      setTags(tags || [])
+      setWeeklyCompletions(weeklyCompletions)
+      setSelectedTags([])
+    })
+  }
+
+  // Refresh data when year changes
+  useEffect(() => {
+    if (isHydrated) {
+      fetchPlannerData()
+    }
+  }, [selectedYear, isHydrated])
+
+  // Initialize with server data
+  useEffect(() => {
+    if (selectedYear === initialYear) {
+      setTasks(initialTasks)
+      setTags(initialTags)
+      setWeeklyCompletions(initialWeeklyCompletions)
+      setSelectedTags([])
+    }
+  }, [])
 
   // Ensure default tags exist for new users and clean up duplicates
   useEffect(() => {
@@ -189,7 +251,7 @@ export function WeeklyPlannerClient({
       title,
       description: description || null,
       week_number: weekNumber,
-      year: currentYear,
+      year: selectedYear,
       completed: false,
       sort_order: tasks.filter((t) => t.week_number === weekNumber).length,
     }
@@ -387,9 +449,9 @@ export function WeeklyPlannerClient({
     tasks: filteredTasks.filter((t) => t.week_number === i + 1),
   }))
 
-  // Determine if the currentYear equals the real calendar year; only then mark current week
+  // Determine if the selectedYear equals the real calendar year; only then mark current week
   const realCurrentYear = new Date().getFullYear()
-  const isViewingRealCurrentYear = currentYear === realCurrentYear
+  const isViewingRealCurrentYear = selectedYear === realCurrentYear
   const displayCurrentWeek = isViewingRealCurrentYear ? currentWeek : null
 
   return (
@@ -397,7 +459,7 @@ export function WeeklyPlannerClient({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{currentYear} Planner</h1>
+          <h1 className="text-2xl font-bold">{isHydrated ? selectedYear : initialYear} Planner</h1>
           <p className="text-muted-foreground">
             Week {isViewingRealCurrentYear ? currentWeek : "–"} of 52
           </p>
@@ -477,7 +539,7 @@ export function WeeklyPlannerClient({
 
       {/* Heatmap */}
       <div className="p-4 border border-border rounded-lg bg-card">
-        <ProgressHeatmap data={weeklyCompletions} currentWeek={isViewingRealCurrentYear ? currentWeek : undefined} />
+        <ProgressHeatmap data={weeklyCompletions} currentWeek={displayCurrentWeek || -1} />
       </div>
 
       {/* Tag Filter */}
@@ -494,7 +556,7 @@ export function WeeklyPlannerClient({
           <WeekCard
             key={weekNumber}
             weekNumber={weekNumber}
-            year={currentYear}
+            year={selectedYear || initialYear}
             tasks={weekTasks}
             tags={tags}
             isCurrentWeek={displayCurrentWeek === weekNumber}

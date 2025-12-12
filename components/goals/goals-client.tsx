@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { useYear } from "@/contexts/year-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -56,9 +57,11 @@ interface GoalsClientProps {
   userId: string
 }
 
-export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, userId }: GoalsClientProps) {
+export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear: initialYear, userId }: GoalsClientProps) {
+  const { selectedYear } = useYear()
   const [goals, setGoals] = useState<GoalWithProgress[]>(initialGoals)
   const [decadeGoals, setDecadeGoals] = useState<DecadeGoal[]>(initialDecadeGoals)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isDecadeDialogOpen, setIsDecadeDialogOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<GoalWithProgress | null>(null)
@@ -81,11 +84,69 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
 
   const supabase = createClient()
 
+  // Mark as hydrated after first render
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  // Fetch goals data for the selected year
+  const fetchGoalsData = async () => {
+    startTransition(async () => {
+      // Fetch yearly goals
+      const { data: goals } = await supabase
+        .from("yearly_goals")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("year", selectedYear)
+        .order("created_at", { ascending: true })
+
+      // Fetch tasks linked to goals
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("year", selectedYear)
+        .not("goal_id", "is", null)
+
+      // Fetch decade goals (not filtered by selected year)
+      const { data: decadeGoals } = await supabase
+        .from("decade_goals")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+
+      // Calculate progress for each goal
+      const goalsWithProgress =
+        goals?.map((goal) => {
+          const linkedTasks = tasks?.filter((t) => t.goal_id === goal.id) || []
+          const completedTasks = linkedTasks.filter((t) => t.completed).length
+          return {
+            ...goal,
+            linked_tasks: linkedTasks.length,
+            completed_tasks: completedTasks,
+            progress: linkedTasks.length > 0 ? Math.round((completedTasks / linkedTasks.length) * 100) : 0,
+          }
+        }) || []
+
+      setGoals(goalsWithProgress)
+      setDecadeGoals(decadeGoals || [])
+    })
+  }
+
   // Refresh goals when year changes
   useEffect(() => {
-    setGoals(initialGoals)
-    setDecadeGoals(initialDecadeGoals)
-  }, [initialGoals, initialDecadeGoals, currentYear])
+    if (isHydrated) {
+      fetchGoalsData()
+    }
+  }, [selectedYear, isHydrated])
+
+  // Initialize with server data
+  useEffect(() => {
+    if (selectedYear === initialYear) {
+      setGoals(initialGoals)
+      setDecadeGoals(initialDecadeGoals)
+    }
+  }, [])
 
   const resetForm = () => {
     setTitle("")
@@ -106,7 +167,7 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
         .from("yearly_goals")
         .insert({
           user_id: userId,
-          year: currentYear,
+          year: selectedYear,
           title: title.trim(),
           description: description.trim() || null,
           target_value: targetValue ? Number.parseInt(targetValue) : null,
@@ -126,8 +187,8 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
     if (!decadeTitle.trim() || decadeGoals.length >= 5) return
 
     startTransition(async () => {
-      const startYear = currentYear
-      const endYear = currentYear + 10
+      const startYear = selectedYear
+      const endYear = selectedYear + 10
       const { data, error } = await supabase
         .from("decade_goals")
         .insert({
@@ -273,7 +334,7 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
         .from("tasks")
         .select("*")
         .eq("user_id", userId)
-        .eq("year", currentYear)
+        .eq("year", selectedYear)
 
       if (data) {
         setAllTasks(data)
@@ -348,7 +409,7 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{currentYear} Goals</h1>
+          <h1 className="text-2xl font-bold">{isHydrated ? selectedYear : initialYear} Goals</h1>
           <p className="text-muted-foreground">
             {goals.length} goals · {completedGoals} completed · {overallProgress}% overall
           </p>
@@ -561,8 +622,8 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
               />
             </div>
             <div className="text-sm text-muted-foreground">
-              Start year: {editingDecadeGoal?.start_year ?? currentYear} · End year:{" "}
-              {editingDecadeGoal?.end_year ?? currentYear + 10}
+              Start year: {editingDecadeGoal?.start_year ?? selectedYear} · End year:{" "}
+              {editingDecadeGoal?.end_year ?? selectedYear + 10}
             </div>
           </div>
           <DialogFooter>
@@ -591,9 +652,9 @@ export function GoalsClient({ initialGoals, initialDecadeGoals, currentYear, use
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
               onClick={handleDeleteDecadeGoal}
               disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
