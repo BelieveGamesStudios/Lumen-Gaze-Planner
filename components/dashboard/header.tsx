@@ -3,7 +3,7 @@
 import type React from "react"
 
 import type { User } from "@supabase/supabase-js"
-import { CalendarDays, Search, Moon, Sun, LogOut, Bell, X, CalendarRange } from "lucide-react"
+import { CalendarDays, Search, Moon, Sun, LogOut, Bell, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,6 +23,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import Link from "next/link"
 import { useState } from "react"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { YearPicker } from "@/components/dashboard/year-picker"
 
 export function DashboardHeader({ user }: { user: User }) {
   const { setTheme, theme } = useTheme()
@@ -38,9 +39,6 @@ export function DashboardHeader({ user }: { user: User }) {
   const selectedYear = selectedYearParam && !Number.isNaN(parseInt(selectedYearParam, 10))
     ? parseInt(selectedYearParam, 10)
     : thisYear
-  const startYear = Math.min(thisYear - 1, 2018)
-  const endYear = 2040
-  const availableYears = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
 
   useEffect(() => {
     const fetchInvites = async () => {
@@ -122,25 +120,11 @@ export function DashboardHeader({ user }: { user: User }) {
         </Link>
 
         <div className="flex-1 flex items-center gap-3 mx-4 max-w-2xl">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2" data-tour-id="year-selector">
-                <CalendarRange className="h-4 w-4" />
-                <span>{selectedYear}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-36">
-              {availableYears.map((year) => (
-                <DropdownMenuItem key={year} onClick={() => handleYearSelect(year)}>
-                  {year}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleYearSelect(thisYear + 4)}>
-                {thisYear + 4} (upcoming)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <YearPicker
+            selectedYear={selectedYear}
+            onYearSelect={handleYearSelect}
+            currentYear={thisYear}
+          />
 
           <form onSubmit={handleSearch} className="flex-1">
             <div className="relative">

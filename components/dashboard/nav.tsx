@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { CalendarDays, Target, Repeat, BarChart3, Sparkles, Users } from "lucide-react"
 
@@ -15,16 +15,22 @@ const navItems = [
 
 export function DashboardNav() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Get current year parameter to preserve it in navigation
+  const yearParam = searchParams.get("year")
+  const yearQuery = yearParam ? `?year=${yearParam}` : ""
 
   return (
     <nav className="hidden lg:flex flex-col w-56 border-r border-border min-h-[calc(100vh-3.5rem)] p-4 gap-1">
       {navItems.map((item) => {
         const Icon = item.icon
+        const href = `${item.href}${yearQuery}`
         const isActive = pathname === item.href
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={href}
             data-tour-id={item.tourId}
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
