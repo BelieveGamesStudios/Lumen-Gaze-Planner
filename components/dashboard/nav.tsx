@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { cn } from "@/lib/utils"
 import { CalendarDays, Target, Repeat, BarChart3, Sparkles, Users } from "lucide-react"
 import { useYear } from "@/contexts/year-context"
@@ -15,7 +15,7 @@ const navItems = [
   { href: "/wrapped", label: "Year Wrapped", icon: Sparkles, tourId: "nav-wrapped" },
 ]
 
-export function DashboardNav() {
+export const DashboardNav = memo(function DashboardNav() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { selectedYear } = useYear()
@@ -30,8 +30,8 @@ export function DashboardNav() {
   const yearFromUrl = searchParams.get("year")
   const displayYear = isHydrated ? selectedYear : (yearFromUrl ? parseInt(yearFromUrl, 10) : selectedYear)
 
-  // Create URL with the current selected year
-  const yearQuery = `?year=${displayYear}`
+  // Memoize the year query string
+  const yearQuery = useMemo(() => `?year=${displayYear}`, [displayYear])
 
   return (
     <nav className="hidden lg:flex flex-col w-56 border-r border-border min-h-[calc(100vh-3.5rem)] p-4 gap-1">
@@ -43,6 +43,7 @@ export function DashboardNav() {
           <Link
             key={item.href}
             href={href}
+            prefetch={true}
             data-tour-id={item.tourId}
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
@@ -58,4 +59,4 @@ export function DashboardNav() {
       })}
     </nav>
   )
-}
+})

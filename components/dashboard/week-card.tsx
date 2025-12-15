@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useCallback, memo } from "react"
 import { ChevronDown, ChevronRight, Plus, Trash2, GripVertical, Edit, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,7 @@ interface WeekCardProps {
   defaultExpanded?: boolean
 }
 
-export function WeekCard({
+export const WeekCard = memo(function WeekCard({
   weekNumber,
   year,
   tasks,
@@ -62,7 +62,7 @@ export function WeekCard({
   const totalCount = tasks.length
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     if (newTaskTitle.trim()) {
       onAddTask(weekNumber, newTaskTitle.trim(), newTaskDescription, newTaskTagIds)
@@ -71,7 +71,19 @@ export function WeekCard({
       setNewTaskTagIds([])
       setIsAdding(false)
     }
-  }
+  }, [newTaskTitle, newTaskDescription, newTaskTagIds, onAddTask, weekNumber])
+
+  const handleToggleExpanded = useCallback(() => {
+    setIsExpanded(!isExpanded)
+  }, [isExpanded])
+
+  const handleStartAdding = useCallback(() => {
+    setIsAdding(true)
+  }, [])
+
+  const handleCancelAdding = useCallback(() => {
+    setIsAdding(false)
+  }, [])
 
   const getTagById = (tagId: string) => tags.find((t) => t.id === tagId)
 
@@ -83,7 +95,7 @@ export function WeekCard({
       )}
     >
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleToggleExpanded}
         className="w-full flex items-center justify-between p-4 hover:bg-secondary/50 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
@@ -301,7 +313,7 @@ export function WeekCard({
                 <Button type="submit" size="sm">
                   Add
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setIsAdding(false)}>
+                <Button type="button" variant="ghost" size="sm" onClick={handleCancelAdding}>
                   Cancel
                 </Button>
               </div>
@@ -311,7 +323,7 @@ export function WeekCard({
               variant="ghost"
               size="sm"
               className="w-full mt-2 text-muted-foreground"
-              onClick={() => setIsAdding(true)}
+              onClick={handleStartAdding}
               data-tour-id="add-task"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -322,4 +334,4 @@ export function WeekCard({
       )}
     </div>
   )
-}
+})
