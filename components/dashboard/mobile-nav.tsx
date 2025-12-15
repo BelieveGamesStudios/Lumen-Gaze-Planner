@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { memo } from "react"
 import { cn } from "@/lib/utils"
 import { CalendarDays, Target, Repeat, BarChart3, Sparkles, Users } from "lucide-react"
 
@@ -13,7 +14,7 @@ const navItems = [
   { href: "/wrapped", label: "Wrapped", icon: Sparkles },
 ]
 
-export function MobileNav() {
+export const MobileNav = memo(function MobileNav() {
   const pathname = usePathname()
 
   return (
@@ -26,6 +27,7 @@ export function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
                 "flex-1 flex flex-col items-center gap-1 py-1 text-xs transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground",
@@ -39,4 +41,4 @@ export function MobileNav() {
       </div>
     </nav>
   )
-}
+})
