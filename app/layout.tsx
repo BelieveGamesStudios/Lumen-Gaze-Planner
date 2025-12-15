@@ -5,6 +5,7 @@ import type { Metadata, Viewport } from "next"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { YearProvider } from "@/contexts/year-context"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 // const _geist = Geist({ subsets: ["latin"] })
@@ -46,6 +47,7 @@ export default function RootLayout({
           <YearProvider>
             {children}
           </YearProvider>
+          <Toaster />
         </ThemeProvider>
         <Analytics />
       </body>
