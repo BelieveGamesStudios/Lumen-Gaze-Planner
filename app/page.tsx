@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { CalendarDays, Target, Repeat, BarChart3, Sparkles, ArrowRight } from "lucide-react"
 
 export default function HomePage() {
@@ -36,16 +37,20 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Animated gradient background */}
-      <div className="fixed inset-0 gradient-mesh opacity-30 pointer-events-none" />
+      {/* Subtle animated orbs background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-40 right-20 w-80 h-80 bg-accent/8 rounded-full blur-3xl animate-float" style={{ animationDelay: "2s", animationDuration: "8s" }} />
+        <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-primary/8 rounded-full blur-3xl animate-float" style={{ animationDelay: "4s", animationDuration: "10s" }} />
+      </div>
 
-      {/* Grid overlay */}
+      {/* Subtle grid overlay */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.02] dark:opacity-[0.05]"
+        className="fixed inset-0 pointer-events-none opacity-[0.015] dark:opacity-[0.03]"
         style={{
-          backgroundImage: `linear-gradient(oklch(0.5 0.2 255) 1px, transparent 1px),
-                           linear-gradient(90deg, oklch(0.5 0.2 255) 1px, transparent 1px)`,
-          backgroundSize: '48px 48px',
+          backgroundImage: `linear-gradient(currentColor 1px, transparent 1px),
+                           linear-gradient(90deg, currentColor 1px, transparent 1px)`,
+          backgroundSize: '64px 64px',
         }}
       />
 
@@ -59,7 +64,8 @@ export default function HomePage() {
             </div>
             <span className="font-bold text-xl tracking-tight">Lumen Gaze Planner</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link href="/auth/login">
               <Button variant="ghost" className="font-medium">Login</Button>
             </Link>
